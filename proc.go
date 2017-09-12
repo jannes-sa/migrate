@@ -17,6 +17,7 @@ type PROCInitStruct struct {
 	Procedure string
 	Table     string
 	Partition string
+	Params    string
 }
 
 // InitProcedure ...
@@ -48,7 +49,7 @@ func initProc(proc []PROCInitStruct) {
 		if v.Partition == "" {
 			com = `echo "create procedure from class ` + v.Procedure + `;" | ` + voltdb + `/bin/sqlcmd`
 		} else if v.Partition != "" {
-			com = `echo "create procedure partition on table ` + v.Table + ` column ` + v.Partition + ` from class ` + v.Procedure + `;" | ` + voltdb + `/bin/sqlcmd`
+			com = `echo "create procedure partition on table ` + v.Table + ` column ` + v.Partition + ` PARAMETER ` + v.Params + ` from class ` + v.Procedure + `;" | ` + voltdb + `/bin/sqlcmd`
 		}
 
 		if com != "" {
