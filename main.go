@@ -11,7 +11,7 @@ import (
 )
 
 // DoMigrate ...
-func DoMigrate(tableName string, status string, connection string, st interface{}) {
+func DoMigrate(tableName string, status string, proc []PROCInitStruct, connection string, st interface{}) {
 	db, err := sql.Open("voltdb", connection)
 	if err != nil {
 		log.Fatal(err)
@@ -29,7 +29,8 @@ func DoMigrate(tableName string, status string, connection string, st interface{
 		}
 
 		if !stateTableExists {
-			prependQueryMigrate(connection, status, tableName, st)
+			prependQueryMigrate(connection, status, tableName, st, proc)
+			InitProcedure(proc)
 		} else {
 			log.Println(`TABLE ` + tableName + ` ALREADY EXISTS CAN'T MIGRATE`)
 		}
@@ -49,7 +50,7 @@ func DoMigrate(tableName string, status string, connection string, st interface{
 			log.Println(`TABLE ` + tableName + ` NOT EXISTS CAN'T UPDATE`)
 		}
 	} else if status == "drop" {
-		dropTable(connection, tableName)
+		dropTable(connection, tableName, proc)
 	}
 }
 
@@ -110,7 +111,8 @@ func prependQueryUpdate(connection, status string, tableName string, st interfac
 ////////////////// UPDATE //////////////
 
 ////////////////// MIGRATE ////////////////////////////
-func prependQueryMigrate(connection, status string, tableName string, st interface{}) {
+func prependQueryMigrate(connection, status string, tableName string, st interface{},
+	proc []PROCInitStruct) {
 	conn, err := voltdbclient.OpenConn(connection)
 	if err != nil {
 		log.Fatal(err)
@@ -170,7 +172,7 @@ func prependQueryMigrate(connection, status string, tableName string, st interfa
 				if len(uq) > 0 {
 					stateUnique := createUniqueIndex(connection, tableName, uq)
 					if !stateUnique {
-						dropTable(connection, tableName)
+						dropTable(connection, tableName, proc)
 					} else {
 						printRows(tableName, arrQry, pk, uq)
 					}
@@ -255,17 +257,29 @@ func createUniqueIndexIgnore(connection string, tableName string, field string) 
 	return stateUnique
 }
 
-func dropTable(connection string, tableName string) {
+func dropTable(connection string, tableName string, proc []PROCInitStruct) {
 	conn, err := voltdbclient.OpenConn(connection)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer conn.Close()
 
+	for _, val := range proc {
+		if val.Procedure != "" {
+			_, err = conn.Exec("@AdHoc", []driver.Value{`drop procedure ` + val.Procedure})
+			if err != nil {
+				log.Println(`Failed Drop Procedure ` + val.Procedure)
+				log.Println(err)
+			} else {
+				log.Println(`drop Procedure ` + val.Procedure)
+			}
+		}
+	}
+
 	_, err = conn.Exec("@AdHoc", []driver.Value{`drop table ` + tableName})
 	if err != nil {
 		log.Println(`Failed Drop Table ` + tableName)
-		log.Fatal(err)
+		log.Println(err)
 	} else {
 		log.Println(`drop table ` + tableName)
 	}
