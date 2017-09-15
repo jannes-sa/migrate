@@ -46,6 +46,7 @@ func DoMigrate(tableName string, status string, proc []PROCInitStruct, connectio
 
 		if stateTableExists {
 			prependQueryUpdate(connection, status, tableName, st)
+			InitProcedure(proc)
 		} else {
 			log.Println(`TABLE ` + tableName + ` NOT EXISTS CAN'T UPDATE`)
 		}
